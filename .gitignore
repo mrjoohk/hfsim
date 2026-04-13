@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments / conda
+.venv/
+venv/
+env/
+
+# Pytest
+.pytest_cache/
+.cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# VS Code
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Excel / binary logs (tracked separately)
+*.xlsx
+
+# Evidence pack outputs (deferred, not committed yet)
+evidence_pack/
+
+# Codex internal
+.codex/

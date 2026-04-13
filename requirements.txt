@@ -1,0 +1,31 @@
+# HF_Sim requirements
+# Python: 3.12 (conda env: hfsim)
+# Interpreter: %USERPROFILE%\anaconda3\envs\hfsim\python.exe
+
+# ---------------------------------------------------------------------------
+# Core — simulation engine
+# ---------------------------------------------------------------------------
+numpy>=1.26
+gymnasium>=1.0
+
+# ---------------------------------------------------------------------------
+# Testing
+# ---------------------------------------------------------------------------
+pytest>=8.0
+
+# ---------------------------------------------------------------------------
+# Training (world-model / RL scripts under tests/test_scripts/)
+# ---------------------------------------------------------------------------
+torch>=2.2
+
+# ---------------------------------------------------------------------------
+# Optional — parallel rollout (local fallback available without Ray)
+# ray is imported lazily via try_import_ray(); simulation runs without it.
+# ---------------------------------------------------------------------------
+# ray[default]>=2.10
+
+# ---------------------------------------------------------------------------
+# Optional — offline 3D visualization (pyvista_viewer.py)
+# pyvista is imported lazily; viewer is skipped when not installed.
+# ---------------------------------------------------------------------------
+# pyvista>=0.43
