@@ -38,5 +38,6 @@ Thumbs.db
 # Evidence pack outputs (deferred, not committed yet)
 evidence_pack/
 
-# Codex internal
-.codex/
+# Claude Code / AI tool workspace state
+.claude/
+.agents/

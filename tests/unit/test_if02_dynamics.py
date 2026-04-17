@@ -252,3 +252,114 @@ def test_if02_sensor_continuity_acceptance():
     nearby = _roll(nearby_runtime, nearby_control, steps=20)
     assert abs(nearby.sensor.quality - baseline.sensor.quality) < 0.1
     assert abs(nearby.sensor.detection_confidence - baseline.sensor.detection_confidence) < 0.1
+
+
+# ---------------------------------------------------------------------------
+# Threat + Radar Validation Harness
+# ---------------------------------------------------------------------------
+
+def _runtime_with_threats(threats: list[ThreatState], **kwargs) -> tuple[EnvironmentRuntime, DynamicsControl]:
+    """Build a runtime pre-populated with the given threat list."""
+    rt, ctrl = _runtime(**kwargs)
+    # Replace threats in the runtime (slots=True → rebuild)
+    rt = EnvironmentRuntime(
+        ownship=rt.ownship,
+        threats=threats,
+        targets=rt.targets,
+        environment=rt.environment,
+        radar=rt.radar,
+        sensor=rt.sensor,
+        atmosphere=rt.atmosphere,
+        rng_state=rt.rng_state,
+        mode_flags=rt.mode_flags,
+        dt_internal=rt.dt_internal,
+        calibration_config=rt.calibration_config,
+    )
+    return rt, ctrl
+
+
+def test_if02_threat_kinematics_long_horizon_stability_acceptance():
+    """Threat position and velocity remain finite over 600 steps."""
+    threat = ThreatState(identifier="th-close", position_m=[2000.0, 0.0, 1000.0], velocity_mps=[-20.0, 0.0, 0.0])
+    rt, ctrl = _runtime_with_threats([threat])
+    rolled = _roll(rt, ctrl, steps=600)
+    for t in rolled.threats:
+        assert all(math.isfinite(v) for v in t.position_m), "threat position non-finite"
+        assert all(math.isfinite(v) for v in t.velocity_mps), "threat velocity non-finite"
+
+
+def test_if02_threat_approaches_ownship_radar_range_decreases_acceptance():
+    """Threat moving toward ownship → radar detected_range decreases over time."""
+    # Threat starts at 5000 m on x-axis, moving at -50 m/s (toward ownship at origin)
+    threat = ThreatState(identifier="th-1", position_m=[5000.0, 0.0, 1000.0], velocity_mps=[-50.0, 0.0, 0.0])
+    rt, ctrl = _runtime_with_threats([threat], throttle=0.0)
+
+    # Step 1: initial range
+    rt_step1 = step_environment_runtime(rt, ctrl)
+    range_early = rt_step1.radar.detected_ranges_m[0] if rt_step1.radar.detected_ranges_m else float("inf")
+
+    # Step 50: threat has moved ~50 × 50 × 0.01 = 25 m closer per step
+    rolled = _roll(rt, ctrl, steps=50)
+    range_late = rolled.radar.detected_ranges_m[0] if rolled.radar.detected_ranges_m else float("inf")
+
+    assert range_late < range_early, (
+        f"Radar range should decrease as threat approaches: early={range_early:.1f} late={range_late:.1f}"
+    )
+
+
+def test_if02_threat_within_detection_range_detected_acceptance():
+    """Threat at 1000 m with standard atmosphere → contact_count >= 1, confidence > 0."""
+    threat = ThreatState(identifier="th-near", position_m=[1000.0, 0.0, 1000.0], velocity_mps=[0.0, 0.0, 0.0])
+    rt, ctrl = _runtime_with_threats([threat], turbulence_level=0.0)
+    rolled = step_environment_runtime(rt, ctrl)
+    assert rolled.sensor.contact_count >= 1, "Near threat should be detected"
+    assert rolled.sensor.detection_confidence > 0.0, "Near threat confidence should be > 0"
+
+
+def test_if02_threat_beyond_detection_range_not_detected_acceptance():
+    """Threat at 15 000 m (beyond max 6 000 m detection range) → contact_count = 0."""
+    threat = ThreatState(identifier="th-far", position_m=[15000.0, 0.0, 1000.0], velocity_mps=[0.0, 0.0, 0.0])
+    rt, ctrl = _runtime_with_threats([threat], turbulence_level=0.0)
+    rolled = step_environment_runtime(rt, ctrl)
+    assert rolled.sensor.contact_count == 0, "Far-field threat should not be detected"
+    assert rolled.sensor.detection_confidence == pytest.approx(0.0)
+
+
+def test_if02_multiple_threats_all_tracked_in_radar_acceptance():
+    """Two threats → radar.track_ids contains both identifiers."""
+    threats = [
+        ThreatState(identifier="th-alpha", position_m=[2000.0, 0.0, 1000.0], velocity_mps=[-10.0, 0.0, 0.0]),
+        ThreatState(identifier="th-bravo", position_m=[3000.0, 500.0, 900.0], velocity_mps=[-15.0, 0.0, 0.0]),
+    ]
+    rt, ctrl = _runtime_with_threats(threats)
+    rolled = step_environment_runtime(rt, ctrl)
+    assert "th-alpha" in rolled.radar.track_ids
+    assert "th-bravo" in rolled.radar.track_ids
+    assert len(rolled.radar.detected_ranges_m) == 2
+
+
+def test_if02_radar_range_ordering_matches_geometry_acceptance():
+    """Closer threat has smaller radar detected_range than farther threat."""
+    threats = [
+        ThreatState(identifier="th-close", position_m=[1000.0, 0.0, 1000.0], velocity_mps=[0.0, 0.0, 0.0]),
+        ThreatState(identifier="th-far",   position_m=[8000.0, 0.0, 1000.0], velocity_mps=[0.0, 0.0, 0.0]),
+    ]
+    rt, ctrl = _runtime_with_threats(threats)
+    rolled = step_environment_runtime(rt, ctrl)
+    # radar track_ids order matches threat list order
+    close_idx = rolled.radar.track_ids.index("th-close")
+    far_idx   = rolled.radar.track_ids.index("th-far")
+    assert rolled.radar.detected_ranges_m[close_idx] < rolled.radar.detected_ranges_m[far_idx]
+
+
+def test_if02_unsupported_threat_model_raises_acceptance():
+    """Threat with unsupported model_id must raise NotImplementedError."""
+    bad_threat = ThreatState(
+        identifier="th-bad",
+        position_m=[2000.0, 0.0, 1000.0],
+        velocity_mps=[-10.0, 0.0, 0.0],
+        model_id="homing_guidance",
+    )
+    rt, ctrl = _runtime_with_threats([bad_threat])
+    with pytest.raises(NotImplementedError):
+        step_environment_runtime(rt, ctrl)

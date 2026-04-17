@@ -182,6 +182,33 @@ def _distance(a: list[float], b: list[float]) -> float:
     return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))
 
 
+def _build_radar_sensor_channels(runtime: EnvironmentRuntime) -> dict[str, float]:
+    """Build 6 normalised radar/sensor scalars for extended observation.
+
+    All values are clipped to [0, 1]:
+    - sensor_quality: direct from SensorState.quality
+    - detection_confidence: direct from SensorState.detection_confidence
+    - sensor_contact_count_norm: contact_count / max(1, n_threats)
+    - radar_track_count_norm: len(track_ids) / max(1, n_threats)
+    - detected_range_nearest_norm: min(ranges) / 10000.0 (0.0 if no detections)
+    - detected_ranges_mean_norm: mean(ranges) / 10000.0 (0.0 if no detections)
+    """
+    n_threats = max(1, len(runtime.threats))
+    ranges = list(runtime.radar.detected_ranges_m)
+
+    nearest_norm = min(ranges) / 10000.0 if ranges else 0.0
+    mean_norm = (sum(ranges) / len(ranges)) / 10000.0 if ranges else 0.0
+
+    return {
+        "sensor_quality": float(min(1.0, max(0.0, runtime.sensor.quality))),
+        "detection_confidence": float(min(1.0, max(0.0, runtime.sensor.detection_confidence))),
+        "sensor_contact_count_norm": float(min(1.0, runtime.sensor.contact_count / n_threats)),
+        "radar_track_count_norm": float(min(1.0, len(runtime.radar.track_ids) / n_threats)),
+        "detected_range_nearest_norm": float(min(1.0, max(0.0, nearest_norm))),
+        "detected_ranges_mean_norm": float(min(1.0, max(0.0, mean_norm))),
+    }
+
+
 def _nearest_target_distance(runtime: EnvironmentRuntime) -> float:
     pos = runtime.ownship.position_m
     dists = [
@@ -223,6 +250,7 @@ class HFSimEnv(gymnasium.Env):
         domain_rand_config: DomainRandConfig | None = None,
         noise_config: NoiseConfig | None = None,
         scenario_id: str = "default",
+        use_radar_obs: bool = False,
     ) -> None:
         super().__init__()
         self._curriculum_level = int(np.clip(curriculum_level, 0, 10))
@@ -232,6 +260,7 @@ class HFSimEnv(gymnasium.Env):
         self._dr_config = domain_rand_config
         self._noise_config = noise_config or NoiseConfig()
         self._scenario_id = scenario_id
+        self._use_radar_obs = use_radar_obs
 
         self._np_rng = np.random.default_rng(seed)
         self._py_seed = seed
@@ -243,8 +272,9 @@ class HFSimEnv(gymnasium.Env):
 
         low_act = np.array([0.0, -1.0, -1.0, -1.0, -1.0], dtype=np.float32)
         high_act = np.array([1.0,  1.0,  1.0,  1.0,  1.0], dtype=np.float32)
+        obs_dim = 22 if use_radar_obs else 16
         self.observation_space = gymnasium.spaces.Box(
-            low=-1.0, high=1.0, shape=(16,), dtype=np.float32
+            low=-1.0, high=1.0, shape=(obs_dim,), dtype=np.float32
         )
         self.action_space = gymnasium.spaces.Box(
             low=low_act, high=high_act, dtype=np.float32
@@ -372,15 +402,26 @@ class HFSimEnv(gymnasium.Env):
     # ------------------------------------------------------------------
 
     def _get_obs(self) -> np.ndarray:
-        """Build normalised 16-dim observation from current runtime."""
+        """Build normalised observation from current runtime.
+
+        Returns a (16,) array by default.  When ``use_radar_obs=True``,
+        appends 6 normalised radar/sensor channels to produce a (22,) array.
+        The first 16 elements are identical in both cases.
+        """
         obs_req = ObservationRequest(
             ownships=[self._runtime.ownship],
             threats=self._runtime.threats,
             environment=self._runtime.environment,
         )
         batch = if_04_build_structured_observation(obs_req)
-        arr = np.array(batch.features, dtype=np.float32)  # (1, 16)
-        return arr[0]  # (16,) single agent
+        arr = np.array(batch.features, dtype=np.float32)[0]  # (16,) single agent
+
+        if not self._use_radar_obs:
+            return arr
+
+        channels = _build_radar_sensor_channels(self._runtime)
+        extra = np.array(list(channels.values()), dtype=np.float32)  # (6,)
+        return np.concatenate([arr, extra], axis=0)  # (22,)
 
     def _get_info(
         self,

@@ -1,0 +1,182 @@
+{
+  "schema_version": "1.0",
+  "description": "Aero calibration case library for REQ-008 validation",
+  "cases": [
+    {
+      "case_id": "c1_nominal",
+      "description": "Nominal conditions: velocity_scale=1.0 (passthrough), standard drag and thrust",
+      "calibration_config": {
+        "velocity_scale": 1.0,
+        "coefficient_overrides": {}
+      },
+      "n_steps": 100,
+      "dt": 0.01,
+      "initial_state": {
+        "position_m": [0.0, 0.0, 1000.0],
+        "velocity_mps": [200.0, 0.0, 0.0],
+        "quaternion_wxyz": [1.0, 0.0, 0.0, 0.0],
+        "angular_rate_rps": [0.0, 0.0, 0.0],
+        "mass_kg": 9000.0,
+        "aero_params": {
+          "drag_coeff": 0.02,
+          "max_thrust_n": 20000.0,
+          "lift_gain": 9.0
+        }
+      },
+      "control": {
+        "throttle": 0.6,
+        "body_rate_cmd_rps": [0.0, 0.0, 0.0],
+        "load_factor_cmd": 1.0
+      },
+      "atmosphere": {
+        "density_kgpm3": 1.225,
+        "wind_vector_mps": [0.0, 0.0, 0.0],
+        "turbulence_level": 0.0
+      },
+      "position_error_threshold_m": 5.0,
+      "velocity_error_threshold_mps": 2.0
+    },
+    {
+      "case_id": "c2_high_drag",
+      "description": "High drag: drag_coeff=0.04 override — tests drag-dominant flight regime",
+      "calibration_config": {
+        "velocity_scale": 1.0,
+        "coefficient_overrides": {
+          "drag_coeff": 0.04
+        }
+      },
+      "n_steps": 100,
+      "dt": 0.01,
+      "initial_state": {
+        "position_m": [0.0, 0.0, 1000.0],
+        "velocity_mps": [200.0, 0.0, 0.0],
+        "quaternion_wxyz": [1.0, 0.0, 0.0, 0.0],
+        "angular_rate_rps": [0.0, 0.0, 0.0],
+        "mass_kg": 9000.0,
+        "aero_params": {
+          "drag_coeff": 0.02,
+          "max_thrust_n": 20000.0,
+          "lift_gain": 9.0
+        }
+      },
+      "control": {
+        "throttle": 0.6,
+        "body_rate_cmd_rps": [0.0, 0.0, 0.0],
+        "load_factor_cmd": 1.0
+      },
+      "atmosphere": {
+        "density_kgpm3": 1.225,
+        "wind_vector_mps": [0.0, 0.0, 0.0],
+        "turbulence_level": 0.0
+      },
+      "position_error_threshold_m": 5.0,
+      "velocity_error_threshold_mps": 2.0
+    },
+    {
+      "case_id": "c3_low_thrust",
+      "description": "Low thrust: max_thrust_n=14000 override — tests thrust-limited regime",
+      "calibration_config": {
+        "velocity_scale": 1.0,
+        "coefficient_overrides": {
+          "max_thrust_n": 14000.0
+        }
+      },
+      "n_steps": 100,
+      "dt": 0.01,
+      "initial_state": {
+        "position_m": [0.0, 0.0, 1000.0],
+        "velocity_mps": [200.0, 0.0, 0.0],
+        "quaternion_wxyz": [1.0, 0.0, 0.0, 0.0],
+        "angular_rate_rps": [0.0, 0.0, 0.0],
+        "mass_kg": 9000.0,
+        "aero_params": {
+          "drag_coeff": 0.02,
+          "max_thrust_n": 20000.0,
+          "lift_gain": 9.0
+        }
+      },
+      "control": {
+        "throttle": 0.6,
+        "body_rate_cmd_rps": [0.0, 0.0, 0.0],
+        "load_factor_cmd": 1.0
+      },
+      "atmosphere": {
+        "density_kgpm3": 1.225,
+        "wind_vector_mps": [0.0, 0.0, 0.0],
+        "turbulence_level": 0.0
+      },
+      "position_error_threshold_m": 5.0,
+      "velocity_error_threshold_mps": 2.0
+    },
+    {
+      "case_id": "c4_velocity_scale_095",
+      "description": "Velocity scale 0.95: 5% speed reduction calibration",
+      "calibration_config": {
+        "velocity_scale": 0.95,
+        "coefficient_overrides": {}
+      },
+      "n_steps": 100,
+      "dt": 0.01,
+      "initial_state": {
+        "position_m": [0.0, 0.0, 1000.0],
+        "velocity_mps": [200.0, 0.0, 0.0],
+        "quaternion_wxyz": [1.0, 0.0, 0.0, 0.0],
+        "angular_rate_rps": [0.0, 0.0, 0.0],
+        "mass_kg": 9000.0,
+        "aero_params": {
+          "drag_coeff": 0.02,
+          "max_thrust_n": 20000.0,
+          "lift_gain": 9.0
+        }
+      },
+      "control": {
+        "throttle": 0.6,
+        "body_rate_cmd_rps": [0.0, 0.0, 0.0],
+        "load_factor_cmd": 1.0
+      },
+      "atmosphere": {
+        "density_kgpm3": 1.225,
+        "wind_vector_mps": [0.0, 0.0, 0.0],
+        "turbulence_level": 0.0
+      },
+      "position_error_threshold_m": 5.0,
+      "velocity_error_threshold_mps": 2.0
+    },
+    {
+      "case_id": "c5_combined",
+      "description": "Combined: velocity_scale=0.98 + drag_coeff=0.025 — simultaneous parameter adjustment",
+      "calibration_config": {
+        "velocity_scale": 0.98,
+        "coefficient_overrides": {
+          "drag_coeff": 0.025
+        }
+      },
+      "n_steps": 100,
+      "dt": 0.01,
+      "initial_state": {
+        "position_m": [0.0, 0.0, 1000.0],
+        "velocity_mps": [200.0, 0.0, 0.0],
+        "quaternion_wxyz": [1.0, 0.0, 0.0, 0.0],
+        "angular_rate_rps": [0.0, 0.0, 0.0],
+        "mass_kg": 9000.0,
+        "aero_params": {
+          "drag_coeff": 0.02,
+          "max_thrust_n": 20000.0,
+          "lift_gain": 9.0
+        }
+      },
+      "control": {
+        "throttle": 0.6,
+        "body_rate_cmd_rps": [0.0, 0.0, 0.0],
+        "load_factor_cmd": 1.0
+      },
+      "atmosphere": {
+        "density_kgpm3": 1.225,
+        "wind_vector_mps": [0.0, 0.0, 0.0],
+        "turbulence_level": 0.0
+      },
+      "position_error_threshold_m": 5.0,
+      "velocity_error_threshold_mps": 2.0
+    }
+  ]
+}

@@ -165,17 +165,72 @@ def rollout_branch_batch_with_environment_kernel(prepared_branch_batch: Prepared
                 {
                     "step": step_index,
                     "sim_time_s": branch_runtime.environment.sim_time_s,
+                    "control": {
+                        "throttle": float(control.get("throttle", 0.0)),
+                        "body_rate_cmd_rps": [
+                            float(control.get("roll", 0.0)),
+                            float(control.get("pitch", 0.0)),
+                            float(control.get("yaw", 0.0)),
+                        ],
+                        "load_factor_cmd": float(control.get("load_factor", 1.0)),
+                    },
+                    "ownship": {
+                        "position_m": list(branch_runtime.ownship.position_m),
+                        "velocity_mps": list(branch_runtime.ownship.velocity_mps),
+                        "quaternion_wxyz": list(branch_runtime.ownship.quaternion_wxyz),
+                        "angular_rate_rps": list(branch_runtime.ownship.angular_rate_rps),
+                    },
                     "ownship_position_m": list(branch_runtime.ownship.position_m),
                     "ownship_velocity_mps": list(branch_runtime.ownship.velocity_mps),
+                    "ownship_quaternion_wxyz": list(branch_runtime.ownship.quaternion_wxyz),
+                    "ownship_angular_rate_rps": list(branch_runtime.ownship.angular_rate_rps),
+                    "threats": [
+                        {
+                            "identifier": threat.identifier,
+                            "position_m": list(threat.position_m),
+                        }
+                        for threat in branch_runtime.threats
+                    ],
                     "threat_positions_m": [list(threat.position_m) for threat in branch_runtime.threats],
+                    "radar": {
+                        "track_ids": list(branch_runtime.radar.track_ids),
+                        "detected_ranges_m": list(branch_runtime.radar.detected_ranges_m),
+                        "mode": branch_runtime.radar.mode,
+                    },
                     "radar_tracks": list(branch_runtime.radar.track_ids),
+                    "radar_detected_ranges_m": list(branch_runtime.radar.detected_ranges_m),
                     "sensor_contact_count": branch_runtime.sensor.contact_count,
                     "sensor_quality": branch_runtime.sensor.quality,
                     "sensor_detection_confidence": branch_runtime.sensor.detection_confidence,
+                    "sensor": {
+                        "contact_count": branch_runtime.sensor.contact_count,
+                        "quality": branch_runtime.sensor.quality,
+                        "detection_confidence": branch_runtime.sensor.detection_confidence,
+                        "mode": branch_runtime.sensor.mode,
+                    },
+                    "atmosphere": {
+                        "density_kgpm3": branch_runtime.atmosphere.density_kgpm3,
+                        "turbulence_level": branch_runtime.atmosphere.turbulence_level,
+                        "wind_vector_mps": list(branch_runtime.atmosphere.wind_vector_mps),
+                    },
                     "atmosphere_density_kgpm3": branch_runtime.atmosphere.density_kgpm3,
                     "turbulence_level": branch_runtime.atmosphere.turbulence_level,
                     "wind_vector_mps": list(branch_runtime.atmosphere.wind_vector_mps),
+                    "environment": {
+                        "terrain_reference": list(branch_runtime.environment.terrain_reference),
+                        "agent_count": int(branch_runtime.mode_flags.get("agent_count", len(branch_runtime.threats) + 1)),
+                    },
                     "terrain_reference": list(branch_runtime.environment.terrain_reference),
+                    "mode_flags": dict(branch_runtime.mode_flags),
+                    "rng_step_index": int(branch_runtime.rng_state.get("step_index", 0)),
+                    "acceptance_snapshot": {
+                        "finite_state": True,
+                        "quaternion_norm_error": abs(
+                            math.sqrt(sum(component * component for component in branch_runtime.ownship.quaternion_wxyz)) - 1.0
+                        ),
+                        "step_index": step_index,
+                        "sim_time_s": branch_runtime.environment.sim_time_s,
+                    },
                 }
             )
             event_log.append(

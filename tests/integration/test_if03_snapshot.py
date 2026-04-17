@@ -97,6 +97,7 @@ def test_if03_branch_logging_acceptance():
         path = export_validation_log_jsonl(rows, path)
         payload = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
         assert {row["branch_id"] for row in payload} == {"branch_0", "branch_1"}
-        assert all("sensor_quality" in row for row in payload)
+        assert all("sensor" in row for row in payload)
+        assert all("control" in row for row in payload)
     finally:
         path.unlink(missing_ok=True)

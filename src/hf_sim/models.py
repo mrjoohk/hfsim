@@ -509,3 +509,106 @@ class EvaluationReportBundle:
     ranked_groups: Dict[str, Dict[str, float]]
     scope_findings: List[str]
     manifest: Dict[str, Any]
+
+
+# ---------------------------------------------------------------------------
+# C1: 6-DoF secondary validation (Euler vs RK4)
+# ---------------------------------------------------------------------------
+
+@dataclass(slots=True)
+class SixDofComparisonResult:
+    """Per-step comparison result between Euler and RK4 integration."""
+    step: int
+    position_error_m: float
+    velocity_error_mps: float
+    euler_position_m: List[float]
+    rk4_position_m: List[float]
+
+
+@dataclass(slots=True)
+class ManeuverDefinition:
+    """Named control schedule for fidelity and regression checks."""
+    name: str
+    description: str
+    controls: List[DynamicsControl]
+    expected_signal: str
+
+
+@dataclass(slots=True)
+class ManeuverRegressionResult:
+    """Trajectory-level Euler vs RK4 regression summary for one maneuver."""
+    maneuver_name: str
+    mean_position_error_m: float
+    peak_position_error_m: float
+    mean_velocity_error_mps: float
+    peak_velocity_error_mps: float
+    final_position_error_m: float
+    final_velocity_error_mps: float
+
+
+@dataclass(slots=True)
+class SixDofRegressionReport:
+    """Suite-level regression report spanning multiple named maneuvers."""
+    dt: float
+    scenario_count: int
+    scenario_results: List[Any]
+
+
+@dataclass(slots=True)
+class ControlResponseMetrics:
+    """Ownship response summary for one control maneuver."""
+    scenario_name: str
+    n_steps: int
+    response_signal: str
+    initial_speed_mps: float
+    final_speed_mps: float
+    max_speed_mps: float
+    max_abs_angular_rate_rps: float
+    max_position_delta_m: float
+    quaternion_norm_error_max: float
+    energy_like_drift: float
+    response_latency_steps: int
+    overshoot: float
+    steady_state_drift: float
+    finite_state: bool
+    monotonic_sim_time: bool
+
+
+# ---------------------------------------------------------------------------
+# C3: Aero calibration case library (REQ-008)
+# ---------------------------------------------------------------------------
+
+@dataclass(slots=True)
+class CalibrationCase:
+    """Single calibration case definition (JSON-loadable)."""
+    case_id: str
+    description: str
+    calibration_config: Dict[str, Any]          # velocity_scale, coefficient_overrides
+    n_steps: int
+    dt: float
+    initial_state: Dict[str, Any]               # OwnshipState fields
+    control: Dict[str, Any]                     # throttle, body_rate_cmd_rps, load_factor_cmd
+    atmosphere: Dict[str, Any]                  # density_kgpm3, wind_vector_mps, turbulence_level
+    position_error_threshold_m: float
+    velocity_error_threshold_mps: float
+
+
+@dataclass(slots=True)
+class CalibrationCaseResult:
+    """Result of running one calibration case."""
+    case_id: str
+    position_error_m: float         # RMS position error (Euler vs RK4)
+    velocity_error_mps: float       # RMS velocity error
+    passed: bool
+    notes: List[str] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class AeroCalibrationReport:
+    """Full calibration run report (REQ-008)."""
+    schema_version: str             # "1.0"
+    timestamp_utc: str
+    n_cases_total: int
+    n_cases_passed: int
+    cases: List[Any]                # List[CalibrationCaseResult]
+    coverage_pct: float             # 100.0 guaranteed
