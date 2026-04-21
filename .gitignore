@@ -41,3 +41,10 @@ evidence_pack/
 # Claude Code / AI tool workspace state
 .claude/
 .agents/
+
+# Node / frontend dependencies
+node_modules/
+frontend/node_modules/
+
+# Runtime data / replay reports
+reports/

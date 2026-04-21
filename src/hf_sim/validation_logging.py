@@ -337,6 +337,16 @@ def export_validation_log_jsonl(entries: Iterable[dict[str, Any]], output_path: 
     return target
 
 
+def export_validation_log_parquet(entries: Iterable[dict[str, Any]], output_path: str | Path) -> Path:
+    """Export replay entries to a Parquet file (requires pyarrow).
+
+    Delegates to :func:`hf_sim.log_store.write_parquet` which handles the
+    nested-dict → flat-column conversion and Arrow type mapping.
+    """
+    from hf_sim.log_store import write_parquet
+    return write_parquet(list(entries), output_path)
+
+
 def export_validation_summary_csv(entries: Iterable[dict[str, Any]], output_path: str | Path) -> Path:
     """Export compact validation summary rows."""
     target = Path(output_path)

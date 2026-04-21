@@ -2,7 +2,7 @@
 
 > **목적**: 월드모델 학습 가능성을 빠르게 검증하기 위한 물리 일관성 기반 시뮬레이션 환경의 설계·구현 요약
 > **기간**: 2026-04-08 ~ 진행 중
-> **최종 업데이트**: 2026-04-17
+> **최종 업데이트**: 2026-04-21
 
 ---
 
@@ -44,6 +44,7 @@ EnvironmentRuntime  ← ownship(6-DoF) / threats / targets / radar / sensor / at
 | 보정 워크플로우 | `src/hf_sim/aero_calibration.py` | REQ-008 — JSON case library 기반 공력 보정 |
 | 실험 재현성 | `src/hf_sim/run_manifest.py` | REQ-010 — RunManifest + EvidencePackManifest |
 | 월드모델 | `src/world_model/` | RSSM/DreamerV3 인터페이스 (placeholder) |
+| **웹 대시보드** | `src/api/`, `src/train.py`, `src/sweep_worker.py` | **FastAPI REST+WS + React 대시보드 (5단계)** |
 
 ---
 
@@ -56,7 +57,12 @@ EnvironmentRuntime  ← ownship(6-DoF) / threats / targets / radar / sensor / at
 | 초기 구현 (2026-04-08~09) | UF/IF 스키마 + 30 UF Python 구현, branch rollout MVP, IF-02 validation harness, flight+sensor+atmosphere, Ray runtime | **101 passed** |
 | Phase A (2026-04-13) | A1: 60x benchmark 자동화 (`benchmark.py`) + A2: threat/radar validation harness 추가 | **124 passed** |
 | Phase B (2026-04-13~14) | B1: full-environment long-horizon acceptance (1 000~1 200 steps, mid-run checkpoint restore) + B2: RunManifest/EvidencePackManifest (REQ-010) | **151 passed** |
-| Phase C (2026-04-14~17) | C1: RK4 2차 6-DoF 비교 + C2: use_radar_obs observation 확장 (16→22 dim) + C3: 공력 보정 case library 5개 (REQ-008) | **198 passed** |
+| Phase C (2026-04-14~17) | C1: RK4 2차 6-DoF 비교 + C2: use_radar_obs observation 확장 (16→22 dim) + C3: 공력 보정 case library 5개 (REQ-008) | **210 passed** |
+| **대시보드 1단계 (2026-04-21)** | Panel 삭제 → FastAPI MVP + subprocess runner + MLflow SDK + WS 브로드캐스트 | **210 passed** |
+| **대시보드 2단계 (2026-04-21)** | Parquet/Arrow 마이그레이션 — `log_store.py`, `validation_logging.py` export 추가 | **221 passed** |
+| **대시보드 3단계 (2026-04-21)** | React + Vite + TypeScript 프런트 — Plotly.js 3D 리플레이 + Recharts 라이브 차트 + WS hook | **221 passed** |
+| **대시보드 4단계 (2026-04-21)** | Ray Jobs API runner — `LocalTrainingRunner` + `RayTrainingRunner` + `create_runner()`, asyncio 쓰레드 안전 수정 | **239 passed** |
+| **대시보드 5단계 (2026-04-21)** | 5-A PyTorch Profiler 연동 + 5-C Optuna HP Sweep API + React SweepUI | **239 passed** |
 
 ### 3.2 REQ 달성 현황
 
@@ -90,6 +96,12 @@ EnvironmentRuntime  ← ownship(6-DoF) / threats / targets / radar / sensor / at
 | 공력 보정 workflow | JSON case library + file-driven | 하드코딩 case | REQ-008 file/config-driven 요건 명시적 충족, 확장성 |
 | evidence_pack 설계 | EvidencePackManifest (pack_id + req_id + run_manifest + artifact_paths + pass_fail) | MVP 단계에서 즉시 연결 | acceptance lock 전까지 deferred가 설계집중에 유리 → Phase B에서 도입 |
 | RAM 탐지 (run_manifest) | psutil → ctypes (Windows MEMORYSTATUSEX) → /proc/meminfo → 0.0 fallback | psutil 단독 의존 | 하드 의존성 없이 Windows/Linux 최대 호환 |
+| **대시보드 기술 스택** | **FastAPI + React + Vite + TypeScript** | **Panel + Plotly (기존)** | **Panel은 실시간 스트리밍·레이아웃 자유도·배포 측면에서 한계 명확; 장기 유지보수성 우위** |
+| **Parquet 마이그레이션 순서** | **Stage 2로 앞당김 (React보다 먼저)** | **Stage 4 (원안)** | **React API 계약 설계 전에 데이터 레이어 확정 → 재작업 방지** |
+| **3D 렌더링** | **Plotly.js (`plotly.js-dist-min`)** | **Three.js** | **기존 `_build_plotly_figure()` 로직 검증 완료 — JS로 직접 이식 가능; Three.js는 추가 구현 비용 높음** |
+| **WS 브로드캐스트 쓰레드 안전성** | **`asyncio.run_coroutine_threadsafe(coro, loop)`** | **`asyncio.run(coro)` (기존)** | **배경 스레드에서 `asyncio.run()` 호출 시 새 이벤트 루프 생성 — uvicorn loop가 소유한 WebSocket transport에 접근 불가** |
+| **Ray runner 선택 방식** | **`HFSIM_RUNNER` 환경변수 + `create_runner()` factory** | **하드코딩 또는 config file** | **런타임 교체 가능, 코드 변경 없이 local/ray 전환; 기본값 local로 Ray 없이도 동작** |
+| **Optuna 의존성** | **선택적 (ImportError → random fallback)** | **필수 의존성** | **sweep 기능이 없어도 핵심 시뮬레이션/학습 파이프라인 동작 보장** |
 
 ---
 
@@ -104,6 +116,8 @@ EnvironmentRuntime  ← ownship(6-DoF) / threats / targets / radar / sensor / at
 | 5 | pyvista/ray 의존성 범위 불명확 | 시각화·분산실행과 학습용 rollout의 목적 차이 | optional/offline 분리 설계가 뒤늦게 필요해짐 |
 | 6 | benchmark 60x 검증 실패 (`sim_time_s` 1.4s 출력) | env.reset() 시 sim_time_s가 에피소드 시작 기준으로 리셋됨 | 60s 시뮬레이션 목표치가 1.4s로 측정돼 FAIL; 집계 방식 수정 필요 |
 | 7 | restore_environment_checkpoint() 함수 미존재 | IF-03 실제 API가 validate → materialize 2단계 체인임을 모름 | B1 checkpoint restore 테스트 AttributeError로 실패 |
+| **8** | **`asyncio.run()` 를 배경 스레드에서 호출** | **WS 연결은 uvicorn 이벤트 루프 소유 — `asyncio.run()`은 새 루프 생성** | **브로드캐스트 시도 시 WebSocket transport 접근 실패; 메트릭 전달 불가** |
+| **9** | **conda 환경 vs 시스템 Python 경로 혼재** | **`pip install` 이 shell 기본 Python(C:\Python314)에 설치됨** | **fastapi/mlflow/pyarrow가 conda env(hfsim)에 없어 import 오류 발생** |
 
 ---
 
@@ -118,6 +132,8 @@ EnvironmentRuntime  ← ownship(6-DoF) / threats / targets / radar / sensor / at
 | 5 | offline export + optional helper 패턴으로 분리 | core simulation과 분석 도구 결합도 감소 |
 | 6 | `sim_time_s = n_steps * step_dt_s` 로 수정 (루프 외 누적) | benchmark 60x 검증 정상화, 실측 ~460x 확인 |
 | 7 | IF-03 소스 직접 탐색 → validate+materialize 체인으로 수정 | checkpoint restore determinism 테스트 PASS |
+| **8** | **`asyncio.run_coroutine_threadsafe(ws_manager.broadcast(data), loop)` 로 교체; uvicorn 루프를 `start()` 인자로 전달** | **배경 스레드에서 올바른 이벤트 루프에 코루틴 스케줄링 → WS 브로드캐스트 정상화** |
+| **9** | **모든 Python 호출을 conda env 전체 경로(`/c/Users/user/anaconda3/envs/hfsim/python.exe`)로 명시** | **의존성 설치 및 테스트 실행 환경 통일** |
 
 ---
 
@@ -128,22 +144,25 @@ EnvironmentRuntime  ← ownship(6-DoF) / threats / targets / radar / sensor / at
 - atmosphere 모델은 `density + wind + turbulence` 수준 — richer weather coupling 여지 존재
 - RK4 quaternion kinematics: 현재 rotational은 Euler 유지; 고기동(dt > 0.01s) 시 RK4 rotational 적용 가능
 - World model 인터페이스 (RSSM/DreamerV3)는 placeholder — 실 학습 파이프라인 연결이 다음 핵심 과제
+- **대시보드 3D 렌더링**: 현재 Plotly.js 기반 — 대규모 포인트클라우드/메쉬 시각화 필요 시 Three.js/WebGPU 교체 여지
 
 ### 7.2 프로세스 개선점
 - UF 설계 단계부터 verification ownership을 기본 규칙으로 적용
 - Windows 로컬 권한 이슈를 고려한 테스트 파일 출력 규칙 공통화
 - Phase 단계 구분 + 단계마다 보고/승인 방식이 설계 품질 유지에 효과적이었음
+- **대시보드**: 데이터 레이어(Parquet) 먼저 확정 후 React API 계약 — 재작업 없이 단방향 진행 가능
 
 ### 7.3 핵심 교훈 (Key Takeaways)
 1. **learnability, determinism, throughput의 균형** — realism-max가 목표가 아니다. 측정 가능한 기준(60x, 1e-6 determinism)이 모든 설계 결정의 기준이 된다.
 2. **snapshot = branchable runtime semantics** — "저장"이 아니라 "분기 가능한 환경 전체의 복원"이다. 이를 놓치면 IF-03 전체를 재설계해야 한다.
 3. **측정 가능성이 모든 변경의 전제조건** — benchmark 자동화 없이는 어떤 변경도 regression 여부를 알 수 없다. Phase A에서 먼저 측정 도구를 만든 것이 옳았다.
+4. **asyncio 쓰레드 안전성** — 비동기 프레임워크의 이벤트 루프는 단일 소유자 원칙을 갖는다. 배경 스레드에서 `asyncio.run()`은 새 루프를 만들어 기존 루프 소유 자원에 접근 불가 — 반드시 `run_coroutine_threadsafe` 사용.
 
 ---
 
 ## 8. 현재 상태 및 다음 단계
 
-**현재 상태**: 진행 중 — **198 tests passed** (2026-04-17 기준)
+**현재 상태**: 진행 중 — **239 tests passed** (2026-04-21 기준)
 
 ### 완료
 - [x] REQ → IF → UF 설계 아티팩트 전체 작성
@@ -157,17 +176,25 @@ EnvironmentRuntime  ← ownship(6-DoF) / threats / targets / radar / sensor / at
 - [x] **Phase A**: 60x benchmark 자동화 (`benchmark.py`) + threat/radar validation harness
 - [x] **Phase B**: full-environment long-horizon acceptance + RunManifest/EvidencePackManifest (REQ-010)
 - [x] **Phase C**: RK4 2차 6-DoF 비교 + 22-dim observation extension + 공력 보정 case library 5개 (REQ-008)
+- [x] **대시보드 1단계**: FastAPI MVP (REST+WS) + subprocess runner + MLflow SDK
+- [x] **대시보드 2단계**: Parquet/Arrow 마이그레이션 (`log_store.py`, JSONL fallback)
+- [x] **대시보드 3단계**: React + Plotly.js 3D 리플레이 + Recharts 라이브 차트 + WS hook
+- [x] **대시보드 4단계**: Ray Jobs API runner (`LocalTrainingRunner` / `RayTrainingRunner`), asyncio 쓰레드 안전 수정
+- [x] **대시보드 5단계**: PyTorch Profiler 연동 + Optuna HP Sweep API + React SweepUI
 
-### 남은 작업 (Phase D — 선택적)
+### 남은 작업 (선택적)
 - [ ] **D1**: real pyvista 설치 + viewer overlays (offline 분석 도구)
 - [ ] **D2**: real Ray actor-pool harness (멀티머신 스케일아웃)
 - [ ] **D3**: atmosphere/weather 모델 고도화 (현재 MVP 수준은 충분)
 - [ ] **D4**: World model 실 학습 파이프라인 연결 (RSSM/DreamerV3 placeholder → 구현)
 - [ ] **D5**: curriculum 단계별 도전 수준 검증 강화
+- [ ] **D6**: `npm run build` → FastAPI static 서빙 (production 빌드 검증)
+- [ ] **D7**: Optuna SQLite storage 영속화 (현재 in-memory → 서버 재시작 시 sweep 이력 유실)
 
 ### 알려진 이슈
 - REQ-003 auto-sizing 검증 미흡 (LocalEnvWorker 동작하나 하드웨어 적응 단계별 테스트 없음)
 - REQ-006 curriculum 난이도 단계별 acceptance 미완
+- Ray runner: `HFSIM_RUNNER=ray` 시 `ray start --head` 선행 필요 (현재 docs 없음)
 
 ---
 
@@ -182,8 +209,14 @@ EnvironmentRuntime  ← ownship(6-DoF) / threats / targets / radar / sensor / at
 | 미결 작업 | `output_docs/todo.md` | deferred 항목 목록 |
 | 스키마 | `src/hf_sim/models.py` | 52개 dataclass I/O 계약 |
 | case library | `data/calibration_cases.json` | REQ-008 공력 보정 5개 case |
+| **FastAPI 앱** | `src/api/main.py` | **REST+WS 서버 진입점 (uvicorn)** |
+| **학습 진입점** | `src/train.py` | **subprocess 실행 대상, JSON 1줄/에피소드 stdout** |
+| **Sweep 워커** | `src/sweep_worker.py` | **Optuna / random HP sweep 실행기** |
+| **React 프런트** | `frontend/` | **Vite + TypeScript 대시보드** |
 | Phase A 보고서 | `review_docs/260413_1500_phase_a_implementation_report.md` | benchmark + threat/radar harness |
 | Phase B 보고서 | `review_docs/260414_0930_phase_b_implementation_report.md` | long-horizon + run_manifest |
 | Phase C 보고서 | `review_docs/260413_1800_phase_c_implementation_report.md` | RK4 + obs extension + aero calibration |
 | 작업 로그 | `0.FilesUpdate.xlsx` | 생성 파일 목록 (일시, 파일명, 요약) |
 | 프롬프트 로그 | `1.PromptsUpdate.xlsx` | 프롬프트/응답 이력 |
+
+<!-- updated: 2026-04-21 -->

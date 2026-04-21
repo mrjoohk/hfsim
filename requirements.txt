@@ -25,6 +25,32 @@ torch>=2.2
 # ray[default]>=2.10
 
 # ---------------------------------------------------------------------------
+# Web API server — Stage 1 dashboard (FastAPI + MLflow)
+# Launch: uvicorn src.api.main:app --port 8000 --reload
+# ---------------------------------------------------------------------------
+fastapi>=0.111
+uvicorn[standard]>=0.29
+mlflow>=2.13
+
+# ---------------------------------------------------------------------------
+# Log storage — Stage 2 (Parquet/Arrow)
+# ---------------------------------------------------------------------------
+pyarrow>=16
+
+# ---------------------------------------------------------------------------
+# Optional — Ray Jobs API runner (Stage 4)
+# Set HFSIM_RUNNER=ray and RAY_DASHBOARD_URL=http://127.0.0.1:8265
+# Requires: ray start --head
+# ---------------------------------------------------------------------------
+# ray[default]>=2.10
+
+# ---------------------------------------------------------------------------
+# Optional — Hyperparameter sweep (Stage 5-C)
+# Falls back to random search if not installed.
+# ---------------------------------------------------------------------------
+# optuna>=3.6
+
+# ---------------------------------------------------------------------------
 # Optional — offline 3D visualization (pyvista_viewer.py)
 # pyvista is imported lazily; viewer is skipped when not installed.
 # ---------------------------------------------------------------------------
